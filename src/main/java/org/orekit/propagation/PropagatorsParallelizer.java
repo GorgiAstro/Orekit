@@ -112,6 +112,19 @@ public class PropagatorsParallelizer {
     /** Global step handler. */
     private final MultiSatStepHandler globalHandler;
 
+    private final boolean withGlobalHandler;
+
+    /** Simple constructor.
+     * @param propagators list of propagators to use
+     * @param globalHandler global handler for managing all spacecrafts
+     * simultaneously
+     */
+    public PropagatorsParallelizer(final List<Propagator> propagators) {
+        this.propagators = propagators;
+        this.globalHandler = null;
+        this.withGlobalHandler = false;
+    }
+
     /** Simple constructor.
      * @param propagators list of propagators to use
      * @param globalHandler global handler for managing all spacecrafts
@@ -121,6 +134,7 @@ public class PropagatorsParallelizer {
                                    final MultiSatStepHandler globalHandler) {
         this.propagators = propagators;
         this.globalHandler = globalHandler;
+        this.withGlobalHandler = true;
     }
 
     /** Simple constructor.
@@ -135,6 +149,7 @@ public class PropagatorsParallelizer {
                                    final MultiSatFixedStepHandler globalHandler) {
         this.propagators   = propagators;
         this.globalHandler = new MultisatStepNormalizer(h, globalHandler);
+        this.withGlobalHandler = true;
     }
 
     /** Get an unmodifiable list of the underlying mono-satellite propagators.
@@ -153,7 +168,9 @@ public class PropagatorsParallelizer {
 
         if (propagators.size() == 1) {
             // special handling when only one propagator is used
-            propagators.get(0).getMultiplexer().add(new SinglePropagatorHandler(globalHandler));
+            if (this.withGlobalHandler) {
+                propagators.get(0).getMultiplexer().add(new SinglePropagatorHandler(globalHandler));
+            }
             return Collections.singletonList(propagators.get(0).propagate(start, target));
         }
 
@@ -174,7 +191,9 @@ public class PropagatorsParallelizer {
         for (final PropagatorMonitoring monitor : monitors) {
             initialStates.add(monitor.parameters.initialState);
         }
-        globalHandler.init(initialStates, target);
+        if (withGlobalHandler) {
+            globalHandler.init(initialStates, target);
+        }
         for (boolean isLast = false; !isLast;) {
 
             // select the earliest ending propagator, according to propagation direction
@@ -201,7 +220,9 @@ public class PropagatorsParallelizer {
             for (final PropagatorMonitoring monitor : monitors) {
                 interpolators.add(monitor.restricted);
             }
-            globalHandler.handleStep(interpolators);
+            if (withGlobalHandler) {
+                globalHandler.handleStep(interpolators);
+            }
 
             if (selected.parameters.finalState == null) {
                 // step handler can still provide new results
@@ -246,7 +267,9 @@ public class PropagatorsParallelizer {
             }
         }
 
-        globalHandler.finish(finalStates);
+        if (withGlobalHandler) {
+            globalHandler.finish(finalStates);
+        }
 
         return finalStates;
 
